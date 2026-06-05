@@ -4,4 +4,8 @@ import ma.osbt.entitie.Personne;
 
 public interface PersonneService {
 	Personne findByEmail(String email);
+
+	Personne getUtilisateurConnecte();
+
+	Personne findByUsername(String name);
 }

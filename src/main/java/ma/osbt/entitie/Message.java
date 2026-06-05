@@ -3,6 +3,8 @@ package ma.osbt.entitie;
 import java.time.LocalTime;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -35,8 +37,11 @@ public class Message {
     @JoinColumn(name = "destinataire_id")
     private Personne destinataire;
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "consultation_id")
     private Consultation consultation;
+    
+    
 
 
     

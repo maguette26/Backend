@@ -15,9 +15,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	public void registerStompEndpoints(StompEndpointRegistry registry) {
 	    registry.addEndpoint("/ws-message")
 	            .setAllowedOriginPatterns("*")
-	            .addInterceptors(webSocketUserInterceptor)
+	            .addInterceptors(webSocketUserInterceptor) 
 	            .withSockJS();
+
+registry.addEndpoint("/ws-consultation")
+.setAllowedOriginPatterns("http://localhost:5173")
+        .withSockJS();
 	}
+	
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {

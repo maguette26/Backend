@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import ma.osbt.entitie.Consultation;
 import ma.osbt.entitie.Personne;
+import ma.osbt.entitie.ProfessionnelSanteMentale;
 import ma.osbt.entitie.StatutConsultation;
 import ma.osbt.entitie.Utilisateur;
 import ma.osbt.service.ConsultationService;
@@ -80,5 +81,31 @@ public class ConsultationController {
             throw new RuntimeException("Seuls les utilisateurs peuvent accéder à leurs consultations");
         }
         return consultationService.getConsultationsByUtilisateurEtStatut(utilisateur.getId(), statut);
+    }
+ // Ajoute dans ton ConsultationController.java existant
+
+    @GetMapping("/mes-consultations/professionnel")
+    public List<Map<String, Object>> getConsultationsPourPro(
+            @AuthenticationPrincipal Personne personneConnectee) {
+
+        if (!(personneConnectee instanceof ProfessionnelSanteMentale pro)) {
+            throw new RuntimeException("Réservé aux professionnels");
+        }
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH'H'mm");
+
+        return consultationService.getConsultationsParProfessionnelId(pro.getId())
+            .stream()
+            .map(c -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", c.getIdConsultation());
+                map.put("date", c.getDateConsultation());
+                map.put("heure", c.getHeure() != null ? c.getHeure().format(fmt) : null);
+                map.put("prix", c.getPrix());
+                map.put("statut", c.getStatut() != null ? c.getStatut().name() : null);
+                map.put("patientNom", c.getReservation().getUtilisateur().getNom());
+                map.put("patientPrenom", c.getReservation().getUtilisateur().getPrenom());
+                return map;
+            }).toList();
     }
 }

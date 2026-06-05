@@ -61,5 +61,35 @@ public class PaymentController {
             return ResponseEntity.status(500).body("Erreur lors de la création du paiement : " + e.getMessage());
         }
     }
+    
+    @PostMapping("/create-premium")
+    public ResponseEntity<?> createPremiumPayment(@RequestBody Map<String, Object> data) {
+        try {
+            String planId = data.get("planId").toString(); // "monthly", "quarterly", "annually"
+            String paymentMethod = data.get("paymentMethod").toString().toLowerCase();
+            String successUrl = data.getOrDefault("successUrl", "").toString();
+            String cancelUrl = data.getOrDefault("cancelUrl", "").toString();
+            String currency = data.getOrDefault("currency", "EUR").toString();
+            String userId = data.get("userId").toString(); // ID utilisateur
+
+            String result;
+            switch (paymentMethod) {
+                case "stripe":
+                    result = stripePaymentService.createPremiumPaymentIntent(planId, currency, successUrl, cancelUrl, userId);
+                    return ResponseEntity.ok(Map.of("clientSecret", result));
+
+                case "paypal":
+                    result = payPalPaymentService.createPremiumPaymentIntent(planId, currency, successUrl, cancelUrl, userId);
+                    return ResponseEntity.ok(Map.of("approvalUrl", result));
+
+                default:
+                    return ResponseEntity.badRequest().body("Méthode de paiement inconnue");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("Erreur lors de la création du paiement Premium : " + e.getMessage());
+        }
+    }
 
 }

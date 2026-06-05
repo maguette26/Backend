@@ -1,6 +1,7 @@
 package ma.osbt.controller;
 
 import java.io.IOException;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -21,6 +22,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+ 
 import ma.osbt.entitie.Consultation;
 import ma.osbt.entitie.Personne;
 import ma.osbt.entitie.ProfessionnelSanteMentale;
@@ -43,7 +45,7 @@ public class ProfessionnelSanteMentaleController {
     @Autowired
     private  ProfessionnelSanteMentaleRepository professionnelRepository;
     private final String DOSSIER_UPLOAD = "C:\\Users\\Administrateur\\Documents\\upload\\";
-
+ 
     @PostMapping("/inscription")
     public ResponseEntity<?> inscrireProfessionnel(
         @RequestParam("specialite") String specialite,
@@ -54,18 +56,29 @@ public class ProfessionnelSanteMentaleController {
         @RequestParam("motDePasse") String motDePasse,
         @RequestParam("telephone") String telephone
     ) {
+
+        // ✅ spécialité valide
+        if (!specialite.equalsIgnoreCase("psychiatrie") && !specialite.equalsIgnoreCase("psychologie")) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Spécialité invalide. Seules 'psychiatrie' ou 'psychologie' sont acceptées."
+            ));
+        }
+
+        // ✅ EMAIL déjà utilisé
+        if (professionnelRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Cet email est déjà utilisé !"
+            ));
+        }
+
+        // ✅ TELEPHONE déjà utilisé (IMPORTANT 👇 ajoute aussi ça)
+        if (professionnelRepository.existsByTelephone(telephone)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Ce numéro de téléphone est déjà utilisé !"
+            ));
+        }
+
         try {
-            if (!specialite.equalsIgnoreCase("psychiatrie") && !specialite.equalsIgnoreCase("psychologie")) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body("Spécialité invalide. Seules 'psychiatrie' ou 'psychologie' sont acceptées.");
-            }
-
-            // Vérification email existant
-            if (professionnelRepository.existsByEmail(email)) {
-                return ResponseEntity.status(HttpStatus.CONFLICT)
-                    .body("Cette adresse email est déjà utilisée.");
-            }
-
             String nomFichier = saveFile(documentFile);
 
             ProfessionnelSanteMentale professionnel = new ProfessionnelSanteMentale();
@@ -77,14 +90,30 @@ public class ProfessionnelSanteMentaleController {
             professionnel.setEmail(email);
             professionnel.setMotDePasse(new BCryptPasswordEncoder().encode(motDePasse));
             professionnel.setTelephone(telephone);
-            professionnel.setRole(specialite.equalsIgnoreCase("psychiatrie") ? Role.PSYCHIATRE : Role.PSYCHOLOGUE);
+            professionnel.setRole(
+                specialite.equalsIgnoreCase("psychiatrie") 
+                    ? Role.PSYCHIATRE 
+                    : Role.PSYCHOLOGUE
+            );
 
-            ProfessionnelSanteMentale saved = service.saveProfessionnel(professionnel);
-            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+            service.saveProfessionnel(professionnel);
+
+            return ResponseEntity.ok(Map.of(
+                "message", "Inscription réussie, en attente de validation."
+            ));
 
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body("Erreur : " + e.getMessage());
+
+            // 🔥 sécurité ultime (si jamais la DB bloque quand même)
+            if (e.getMessage() != null && e.getMessage().contains("unique_email")) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "message", "Cet email est déjà utilisé !"
+                ));
+            }
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "message", "Erreur serveur. Veuillez réessayer."
+            ));
         }
     }
 

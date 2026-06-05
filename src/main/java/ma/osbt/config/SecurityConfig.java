@@ -97,7 +97,13 @@ public class SecurityConfig {
                     "/webhook",
                     "/error",
                     "/",
-                    "/api/disponibilites/publiques"
+                    "/api/disponibilites/publiques",
+                    "/api/ai/analyze-emotion",
+                    "/api/ai/chat",
+                   /* "/api/payments/**",
+                    "/api/payments/premium/**",*/
+                    "/webhook/stripe/**",
+                    "/webhook/paypal/**"
                 ).permitAll()
 
                 .requestMatchers(HttpMethod.GET, "/api/fonctionnalites/**").hasAnyRole("USER", "PSYCHOLOGUE", "PSYCHIATRE", "ADMIN")
@@ -119,7 +125,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/reservations").hasRole("USER")
                 .requestMatchers("/api/reservations/annuler/*").hasRole("USER")
                 .requestMatchers("/api/professionnels/tous").hasAnyRole("USER", "ADMIN")
-                 
                 .requestMatchers(HttpMethod.GET, "/api/reservations/pro/**").hasAnyRole("PSYCHOLOGUE", "PSYCHIATRE")
                 .requestMatchers(HttpMethod.PATCH, "/api/reservations/statut/**").hasAnyRole("PSYCHOLOGUE", "PSYCHIATRE")
                 .requestMatchers(HttpMethod.PATCH, "/api/professionnel/prix-consultation").hasAnyRole("PSYCHOLOGUE", "PSYCHIATRE")
@@ -156,11 +161,11 @@ public class SecurityConfig {
     @Bean
     @Order(2)
     public SecurityFilterChain wsFilterChain(HttpSecurity http) throws Exception {
-        http
-            .securityMatcher("/ws-message/**", "/topic/**", "/app/**")
-                        .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())  
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS));
+    	http
+    	  .securityMatcher("/ws-message/**","/ws-consultation-test/**", "/ws-consultation/**")
+    	  .csrf(csrf -> csrf.disable())
+    	  .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+    	  .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.ALWAYS));
         return http.build();
     }
 
@@ -169,7 +174,18 @@ public class SecurityConfig {
     public SecurityFilterChain defaultFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/","/webhook", "/error","/webhook/stripe/**","/test/**").permitAll()
+            		.requestMatchers(
+            		        "/",
+            		        "/webhook",
+            		        "/error",
+            		        "/webhook/stripe/**",
+            		        "/test/**",
+            		        "/test-chat.html",
+            		        "/**/*.html",
+            		        "/ws-consultation/**",
+            		        "/ws-consultation-test/**",
+            		        "/ws-message/**"
+            		).permitAll()
                 .anyRequest().authenticated()
             )
             .csrf(csrf -> csrf.disable())

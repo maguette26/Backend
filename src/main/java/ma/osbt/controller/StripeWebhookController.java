@@ -20,7 +20,7 @@ import java.nio.charset.StandardCharsets;
 @RestController
 @RequestMapping("/webhook/stripe")
 public class StripeWebhookController {
-
+	
     @Value("${stripe.webhook.secret}")
     private String endpointSecret;
 
@@ -31,6 +31,7 @@ public class StripeWebhookController {
     public ResponseEntity<String> handleStripeWebhook(HttpServletRequest request,
                                                       @RequestHeader("Stripe-Signature") String sigHeader) {
         System.out.println("Webhook Stripe reçu !");
+        System.out.println("🔥🔥🔥 WEBHOOK REÇU");
         try {
             String payload = new String(request.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             System.out.println("🔔 Stripe Webhook reçu : " + payload);

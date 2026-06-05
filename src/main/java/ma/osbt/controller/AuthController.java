@@ -40,16 +40,43 @@ public class AuthController {
 
     
 
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
 
+        Utilisateur user = userRepository.findByEmail(request.getEmail())
+                .orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "message", "Email incorrect"
+            ));
+        }
+
+        if (!passwordEncoder.matches(request.getMotDePasse(), user.getMotDePasse())) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "message", "Mot de passe incorrect"
+            ));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "id", user.getId(),
+                "email", user.getEmail(),
+                "role", user.getRole().name()
+        ));
+    }
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Validated @RequestBody RegisterRequest signUpRequest) {
 
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity.badRequest().body("Erreur : cet email est déjà utilisé !");
+        	return ResponseEntity.badRequest().body(Map.of(
+        		    "message", "Erreur : cet email est déjà utilisé !"
+        		));
         }
 
         if (userRepository.existsByTelephone(signUpRequest.getTelephone())) {
-            return ResponseEntity.badRequest().body("Erreur : ce numéro de téléphone est déjà utilisé !");
+        	return ResponseEntity.badRequest().body(Map.of(
+        		    "message", "Erreur : ce numéro de téléphone est déjà utilisé !"
+        		));
         }
 
         if (!signUpRequest.getMotDePasse().equals(signUpRequest.getConfirmMotDePasse())) {

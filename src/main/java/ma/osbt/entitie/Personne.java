@@ -19,7 +19,11 @@ import java.util.Collections;
 @DiscriminatorColumn(name = "type_personne",discriminatorType = DiscriminatorType.STRING)
 public abstract class Personne implements UserDetails {
 
-    @Id
+    /**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	@Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     protected Long id;
    // private String photoUrl;

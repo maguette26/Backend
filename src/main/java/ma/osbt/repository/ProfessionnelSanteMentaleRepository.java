@@ -18,5 +18,6 @@ public interface ProfessionnelSanteMentaleRepository extends JpaRepository<Profe
     List<ProfessionnelSanteMentale> findByNomContainingIgnoreCase(String nom);
     Optional<ProfessionnelSanteMentale> findByEmail(String email);
 	boolean existsByEmail(String email);
+	boolean existsByTelephone(String telephone);
     
 }

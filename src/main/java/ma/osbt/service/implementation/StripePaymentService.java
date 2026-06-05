@@ -58,5 +58,11 @@ public class StripePaymentService implements PaymentService {
 
         return intent.getClientSecret();
     }
+	@Override
+	public String createPremiumPaymentIntent(String planId, String currency, String successUrl, String cancelUrl,
+			String userId) throws Exception {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 }

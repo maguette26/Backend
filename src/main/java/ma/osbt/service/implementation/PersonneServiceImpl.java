@@ -13,5 +13,17 @@ public class PersonneServiceImpl implements PersonneService {@Override
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+@Override
+public Personne getUtilisateurConnecte() {
+	// TODO Auto-generated method stub
+	return null;
+}
+
+@Override
+public Personne findByUsername(String name) {
+	// TODO Auto-generated method stub
+	return null;
+}
  
 }
