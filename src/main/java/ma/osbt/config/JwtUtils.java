@@ -14,10 +14,11 @@ import java.util.stream.Collectors;
 @Component
 public class JwtUtils {
 
-    @Value("${jwt.secret}")
+   
+    @Value("${jwt.secret:PsyConnect2024@SecretKey!XyZ#mN9pQrStUvWx$AbCdEfGhIjKlMn0pQrSt}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration}")
+    @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
 
     private Key getSigningKey() {
