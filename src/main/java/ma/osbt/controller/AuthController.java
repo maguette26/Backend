@@ -1,6 +1,5 @@
 package ma.osbt.controller;
 
- 
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -22,12 +21,11 @@ import ma.osbt.entitie.Role;
 import ma.osbt.entitie.Utilisateur;
 import ma.osbt.repository.PersonneRepository;
 import ma.osbt.repository.UtilisateurRepository;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+// ✅ Pas de @CrossOrigin ici — géré globalement par SecurityConfig
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -38,49 +36,25 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    
+    @Autowired
+    private PersonneRepository personneRepository;
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-
-        Utilisateur user = userRepository.findByEmail(request.getEmail())
-                .orElse(null);
-
-        if (user == null) {
-            return ResponseEntity.status(401).body(Map.of(
-                    "message", "Email incorrect"
-            ));
-        }
-
-        if (!passwordEncoder.matches(request.getMotDePasse(), user.getMotDePasse())) {
-            return ResponseEntity.status(401).body(Map.of(
-                    "message", "Mot de passe incorrect"
-            ));
-        }
-
-        return ResponseEntity.ok(Map.of(
-                "id", user.getId(),
-                "email", user.getEmail(),
-                "role", user.getRole().name()
-        ));
-    }
     @PostMapping("/register")
     public ResponseEntity<?> registerUser(@Validated @RequestBody RegisterRequest signUpRequest) {
-
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-        	return ResponseEntity.badRequest().body(Map.of(
-        		    "message", "Erreur : cet email est déjà utilisé !"
-        		));
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Erreur : cet email est déjà utilisé !"
+            ));
         }
-
         if (userRepository.existsByTelephone(signUpRequest.getTelephone())) {
-        	return ResponseEntity.badRequest().body(Map.of(
-        		    "message", "Erreur : ce numéro de téléphone est déjà utilisé !"
-        		));
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Erreur : ce numéro de téléphone est déjà utilisé !"
+            ));
         }
-
         if (!signUpRequest.getMotDePasse().equals(signUpRequest.getConfirmMotDePasse())) {
-            return ResponseEntity.badRequest().body("Erreur : les mots de passe ne correspondent pas !");
+            return ResponseEntity.badRequest().body(Map.of(
+                "message", "Erreur : les mots de passe ne correspondent pas !"
+            ));
         }
 
         Utilisateur user = new Utilisateur();
@@ -90,72 +64,40 @@ public class AuthController {
         user.setTelephone(signUpRequest.getTelephone());
         user.setMotDePasse(passwordEncoder.encode(signUpRequest.getMotDePasse()));
         user.setRole(Role.USER);
-
         userRepository.save(user);
 
         return ResponseEntity.ok("Utilisateur enregistré avec succès !");
     }
 
-    // 📛 Exception handler global
-    @RestControllerAdvice
-    public static class GlobalExceptionHandler {
-        @ExceptionHandler(MethodArgumentNotValidException.class)
-        public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
-            String errorMessage = ex.getBindingResult()
-                .getAllErrors()
-                .stream()
-                .map(DefaultMessageSourceResolvable::getDefaultMessage)
-                .collect(Collectors.joining(", "));
-            return ResponseEntity.badRequest().body(errorMessage);
-        }
-    }
     @GetMapping("/me")
     public ResponseEntity<?> getAuthenticatedUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(
-                Map.of("authenticated", false)
-            );
+            return ResponseEntity.status(401).body(Map.of("authenticated", false));
         }
 
         Object principal = authentication.getPrincipal();
-
         if (!(principal instanceof Personne)) {
-            return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED).body(
-                Map.of("authenticated", false)
-            );
+            return ResponseEntity.status(401).body(Map.of("authenticated", false));
         }
 
         Personne user = (Personne) principal;
 
-        Long id = user.getId();
-        String email = user.getEmail();
-        String nom = user.getNom();
-        String prenom = user.getPrenom();
-        String telephone = user.getTelephone();
-        String role = user.getAuthorities()
-                .stream()
+        String role = user.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .map(auth -> auth.startsWith("ROLE_") ? auth.substring(5) : auth)
                 .findFirst()
                 .orElse("UNKNOWN");
 
-        // Optionnel : URL photo de profil si tu la gères (voir point 3)
-       // String photoUrl = user.getPhotoUrl(); // ou null si pas géré encore
-
         return ResponseEntity.ok(Map.of(
-                "authenticated", true,
-                "id", id,
-                "email", email,
-                "nom", nom,
-                "prenom", prenom,
-                "telephone", telephone,
-                "role", role
-               // "photoUrl", photoUrl
+            "authenticated", true,
+            "id", user.getId(),
+            "email", user.getEmail(),
+            "nom", user.getNom(),
+            "prenom", user.getPrenom(),
+            "telephone", user.getTelephone(),
+            "role", role
         ));
     }
-
-    @Autowired
-    private PersonneRepository personneRepository;
 
     @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(
@@ -163,49 +105,39 @@ public class AuthController {
             @RequestBody Map<String, Object> updates) {
 
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpServletResponse.SC_UNAUTHORIZED)
-                    .body("Non authentifié !");
+            return ResponseEntity.status(401).body("Non authentifié !");
         }
 
         String email = authentication.getName();
         Personne personne = personneRepository.findByEmail(email).orElse(null);
-
         if (personne == null) {
             return ResponseEntity.badRequest().body("Personne introuvable !");
         }
 
-        if (updates.containsKey("nom")) {
+        if (updates.containsKey("nom")) 
             personne.setNom((String) updates.get("nom"));
-        }
-
-        if (updates.containsKey("prenom")) {
+        if (updates.containsKey("prenom")) 
             personne.setPrenom((String) updates.get("prenom"));
-        }
-
         if (updates.containsKey("telephone")) {
-            String nouveauTelephone = (String) updates.get("telephone");
-            if (!nouveauTelephone.equals(personne.getTelephone()) &&
-                    personneRepository.existsByTelephone(nouveauTelephone)) {
-                return ResponseEntity.badRequest().body("Ce numéro de téléphone est déjà utilisé.");
+            String tel = (String) updates.get("telephone");
+            if (!tel.equals(personne.getTelephone()) &&
+                    personneRepository.existsByTelephone(tel)) {
+                return ResponseEntity.badRequest().body("Ce numéro est déjà utilisé.");
             }
-            personne.setTelephone(nouveauTelephone);
+            personne.setTelephone(tel);
         }
-
         if (updates.containsKey("motDePasse")) {
-            String nouveauMotDePasse = (String) updates.get("motDePasse");
-            if (nouveauMotDePasse != null && !nouveauMotDePasse.isBlank()) {
-                personne.setMotDePasse(passwordEncoder.encode(nouveauMotDePasse));
+            String mdp = (String) updates.get("motDePasse");
+            if (mdp != null && !mdp.isBlank()) {
+                personne.setMotDePasse(passwordEncoder.encode(mdp));
             }
         }
 
         personneRepository.save(personne);
-
         return ResponseEntity.ok("Profil mis à jour avec succès !");
     }
 
-
-
-    // DTOs
+    // ── DTOs ──────────────────────────────────────────────
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -231,12 +163,15 @@ public class AuthController {
         private String confirmMotDePasse;
     }
 
-    @Data
-    public static class LoginRequest {
-        @NotBlank
-        private String email;
-
-        @NotBlank
-        private String motDePasse;
+    // ── Exception handler ─────────────────────────────────
+    @RestControllerAdvice
+    public static class GlobalExceptionHandler {
+        @ExceptionHandler(MethodArgumentNotValidException.class)
+        public ResponseEntity<?> handleValidationExceptions(MethodArgumentNotValidException ex) {
+            String errorMessage = ex.getBindingResult().getAllErrors().stream()
+                .map(DefaultMessageSourceResolvable::getDefaultMessage)
+                .collect(Collectors.joining(", "));
+            return ResponseEntity.badRequest().body(Map.of("errors", errorMessage));
+        }
     }
 }
