@@ -95,7 +95,8 @@ public class SecurityConfig {
                     "/api/ai/analyze-emotion",
                     "/api/ai/chat",
                     "/webhook/stripe/**",
-                    "/webhook/paypal/**"
+                    "/webhook/paypal/**",
+                    "/ws-consultation/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/fonctionnalites/**")
                     .hasAnyRole("USER", "PSYCHOLOGUE", "PSYCHIATRE", "ADMIN")
@@ -180,11 +181,18 @@ public class SecurityConfig {
     public SecurityFilterChain defaultFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/", "/webhook", "/error", "/webhook/stripe/**",
-                    "/test/**", "/test-chat.html", "/**/*.html",
-                    "/ws-consultation/**", "/ws-consultation-test/**", "/ws-message/**"
-                ).permitAll()
+            		.requestMatchers(
+            			    "/",
+            			    "/webhook",
+            			    "/error",
+            			    "/webhook/stripe/**",
+            			    "/test/**",
+            			    "/test-chat.html",
+            			    "/**/*.html",
+            			    "/ws-consultation/**",    
+            			    "/ws-message/**",
+            			    "/ws-consultation-test/**"
+            			).permitAll()
                 .anyRequest().authenticated()
             )
             .csrf(csrf -> csrf.disable())
@@ -224,9 +232,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-            "http://localhost:5173",
-            "http://192.168.1.219",
-            "https://frontend-psyconnect.vercel.app"
+        		"http://localhost:5173",
+        	    "https://frontend-psyconnect.vercel.app",
+        	    "https://backend-psyconnect.up.railway.app"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
