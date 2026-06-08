@@ -82,10 +82,43 @@ public class ReservationController {
     }
 
     @GetMapping("/pro/{proId}")
-    public List<Reservation> getReservationsPourProfessionnel(@PathVariable Long proId) {
+    public List<Map<String, Object>> getReservationsPourProfessionnel(@PathVariable Long proId) {
+
         ProfessionnelSanteMentale pro = new ProfessionnelSanteMentale();
         pro.setId(proId);
-        return reservationService.getReservationsPourPro(pro);
+
+        List<Reservation> reservations = reservationService.getReservationsPourPro(pro);
+
+        DateTimeFormatter heureFormatter = DateTimeFormatter.ofPattern("HH:mm");
+
+        return reservations.stream().map(r -> {
+            Map<String, Object> dto = new HashMap<>();
+
+            dto.put("id", r.getId());
+            dto.put("statut", r.getStatut());
+            dto.put("dateReservation", r.getDateReservation());
+
+            // ✅ USER FIX IMPORTANT
+            if (r.getUtilisateur() != null) {
+                Map<String, Object> user = new HashMap<>();
+                user.put("id", r.getUtilisateur().getId());
+                user.put("prenom", r.getUtilisateur().getPrenom());
+                user.put("nom", r.getUtilisateur().getNom());
+                user.put("email", r.getUtilisateur().getEmail());
+                dto.put("utilisateur", user);
+            }
+
+            // ✅ HEURE FIX (PLUS DE 00:00)
+            if (r.getDisponibilite() != null && r.getDisponibilite().getHeureDebut() != null) {
+                dto.put("heureDebut",
+                    r.getDisponibilite().getHeureDebut().format(heureFormatter)
+                );
+            } else {
+                dto.put("heureDebut", null);
+            }
+
+            return dto;
+        }).toList();
     }
 
     @PutMapping("/{id}/statut")
