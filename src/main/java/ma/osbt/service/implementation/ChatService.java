@@ -1,6 +1,5 @@
 package ma.osbt.service.implementation;
 
-
 import lombok.RequiredArgsConstructor;
 import ma.osbt.dto.MessageDTO;
 import ma.osbt.dto.SendMessageRequest;
@@ -13,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalTime;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,6 +20,9 @@ public class ChatService {
     private final MessageRepository messageRepository;
     private final ConsultationRepository consultationRepository;
 
+    // =========================
+    // ACCESS CONTROL (AMÉLIORÉ)
+    // =========================
     public Consultation validateAccess(Long consultationId, Long userId) {
 
         Consultation consultation = consultationRepository.findById(consultationId)
@@ -35,23 +36,31 @@ public class ChatService {
             throw new RuntimeException("Professionnel manquant");
         }
 
-        boolean isUser = consultation.getReservation().getUtilisateur().getId().equals(userId);
-        boolean isPro = consultation.getProfessionnel().getId().equals(userId);
+        boolean isUser = consultation.getReservation()
+                .getUtilisateur().getId().equals(userId);
+
+        boolean isPro = consultation.getProfessionnel()
+                .getId().equals(userId);
 
         if (!isUser && !isPro) {
             throw new AccessDeniedException("Accès refusé à cette consultation");
         }
 
-        if (consultation.getStatut() != StatutConsultation.CONFIRMEE) {
-            throw new IllegalStateException("Consultation non accessible");
+        // ❌ BLOQUER UNIQUEMENT SI ANNULÉE
+        if (consultation.getStatut() == StatutConsultation.ANNULEE) {
+            throw new IllegalStateException("Consultation annulée");
         }
 
         return consultation;
     }
 
+    // =========================
+    // HISTORIQUE (LECTURE TOUJOURS AUTORISÉE)
+    // =========================
     @Transactional(readOnly = true)
     public List<MessageDTO> getHistory(Long consultationId, Long userId) {
-        validateAccess(consultationId, userId);
+
+        Consultation consultation = validateAccess(consultationId, userId);
 
         return messageRepository.findByConsultationId(consultationId)
                 .stream()
@@ -59,11 +68,21 @@ public class ChatService {
                 .toList();
     }
 
+    // =========================
+    // ENVOI MESSAGE
+    // =========================
     @Transactional
     public Message saveMessage(SendMessageRequest request, Personne expediteur) {
 
         Consultation consultation =
                 validateAccess(request.getConsultationId(), expediteur.getId());
+
+        // 🟡 LECTURE SEULE APRÈS TERMINÉE
+        if (consultation.getStatut() == StatutConsultation.TERMINEE) {
+            throw new IllegalStateException(
+                    "Consultation terminée : envoi de messages désactivé (lecture seule)"
+            );
+        }
 
         Message message = new Message();
         message.setContenu(request.getContenu());
@@ -73,7 +92,8 @@ public class ChatService {
         message.setExpediteur(expediteur);
         message.setConsultation(consultation);
 
-        Long utilisateurId = consultation.getReservation().getUtilisateur().getId();
+        Long utilisateurId = consultation.getReservation()
+                .getUtilisateur().getId();
 
         if (expediteur.getId().equals(utilisateurId)) {
             message.setDestinataire(consultation.getProfessionnel());
@@ -84,6 +104,9 @@ public class ChatService {
         return messageRepository.save(message);
     }
 
+    // =========================
+    // DTO
+    // =========================
     public MessageDTO toDTO(Message m) {
         MessageDTO dto = new MessageDTO();
         dto.setId(m.getId());
@@ -105,6 +128,8 @@ public class ChatService {
     }
 
     public static class AccessDeniedException extends RuntimeException {
-        public AccessDeniedException(String msg) { super(msg); }
+        public AccessDeniedException(String msg) {
+            super(msg);
+        }
     }
 }
