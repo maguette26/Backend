@@ -88,20 +88,22 @@ public class ReservationController {
         return reservationService.getReservationsPourPro(pro);
     }
 
-    @PutMapping("/statut/{id}")
+    @PutMapping("/{id}/statut")
     public Reservation validerOuRefuserReservation(
-        @PathVariable Long id,
-        @RequestParam String statut,
-        @AuthenticationPrincipal Personne personne
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            @AuthenticationPrincipal Personne personne
     ) {
+        String statut = body.get("statut");
+
         if (!(personne instanceof ProfessionnelSanteMentale)) {
             throw new RuntimeException("Utilisateur non autorisé");
         }
 
         ProfessionnelSanteMentale professionnel = (ProfessionnelSanteMentale) personne;
+
         return reservationService.validerOuRefuserReservation(id, statut, professionnel);
     }
-
     @PostMapping("/payer/{id}")
     public ResponseEntity<String> marquerReservationPayee(@PathVariable Long id) {
         try {
