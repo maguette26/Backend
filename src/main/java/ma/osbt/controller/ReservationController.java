@@ -99,23 +99,29 @@ public class ReservationController {
             dto.put("dateReservation", r.getDateReservation());
 
             // ✅ USER FIX IMPORTANT
-            if (r.getUtilisateur() != null) {
-                Map<String, Object> user = new HashMap<>();
-                user.put("id", r.getUtilisateur().getId());
-                user.put("prenom", r.getUtilisateur().getPrenom());
-                user.put("nom", r.getUtilisateur().getNom());
-                user.put("email", r.getUtilisateur().getEmail());
-                dto.put("utilisateur", user);
+            if (r.getHeureReservation() != null) {
+                dto.put(
+                    "heureReservation",
+                    r.getHeureReservation().format(heureFormatter)
+                );
+            }
+
+            if (r.getHeureConsultation() != null) {
+                dto.put(
+                    "heureConsultation",
+                    r.getHeureConsultation().format(heureFormatter)
+                );
             }
 
             // ✅ HEURE FIX (PLUS DE 00:00)
-            if (r.getDisponibilite() != null && r.getDisponibilite().getHeureDebut() != null) {
-                dto.put("heureDebut",
-                    r.getDisponibilite().getHeureDebut().format(heureFormatter)
-                );
-            } else {
-                dto.put("heureDebut", null);
-            }
+            if (r.getDisponibilite() != null &&
+            	    r.getDisponibilite().getHeureDebut() != null) {
+
+            	    dto.put(
+            	        "heureDebut",
+            	        r.getDisponibilite().getHeureDebut().format(heureFormatter)
+            	    );
+            	}
 
             return dto;
         }).toList();
