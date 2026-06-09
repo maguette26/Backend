@@ -96,7 +96,8 @@ public class SecurityConfig {
                     "/api/ai/chat",
                     "/webhook/stripe/**",
                     "/webhook/paypal/**",
-                    "/ws-consultation/**"
+                    "/ws-consultation/**",
+                   "/api/health" 
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/fonctionnalites/**")
                     .hasAnyRole("USER", "PSYCHOLOGUE", "PSYCHIATRE", "ADMIN")

@@ -45,6 +45,7 @@ private ProfessionnelSanteMentale professionnel;
 @OneToOne
 @JoinColumn(name = "reservation_id")
 private Reservation reservation;
-
-
+public Long getId() {
+    return this.idConsultation;
+}
 }

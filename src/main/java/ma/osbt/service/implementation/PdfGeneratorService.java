@@ -62,7 +62,9 @@ public class PdfGeneratorService {
         qrText.setSpacingBefore(30);
         document.add(qrText);
 
-        Image qrImage = QRCodeGenerator.generateQRCodeImage("http://localhost:5173/", 150, 150);
+        Long consultationId = (reservation.getConsultation() != null) ? reservation.getConsultation().getId() : reservation.getId();
+        String consultationUrl = "https://frontend-psyconnect.vercel.app//access/consultation/" + consultationId;
+        Image qrImage = QRCodeGenerator.generateQRCodeImage(consultationUrl, 150, 150);
         qrImage.setAlignment(Image.ALIGN_CENTER);
         document.add(qrImage);
 
