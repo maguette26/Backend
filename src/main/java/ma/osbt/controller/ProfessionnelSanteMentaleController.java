@@ -1,28 +1,22 @@
 package ma.osbt.controller;
 
 import java.io.IOException;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.annotation.PostConstruct;
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+
 import ma.osbt.entitie.Consultation;
 import ma.osbt.entitie.Personne;
 import ma.osbt.entitie.ProfessionnelSanteMentale;
@@ -46,9 +40,8 @@ public class ProfessionnelSanteMentaleController {
     @Autowired
     private ProfessionnelSanteMentaleRepository professionnelRepository;
 
-    // ✅ FIX 1 : chemin Linux compatible Railway (était C:\Users\...)
-    private final Path UPLOAD_DIR =
-            Paths.get(System.getProperty("user.dir"), "uploads", "professionnels");
+    @Autowired
+    private Cloudinary cloudinary;
 
     @PostMapping("/inscription")
     public ResponseEntity<?> inscrireProfessionnel(
@@ -60,31 +53,24 @@ public class ProfessionnelSanteMentaleController {
         @RequestParam("motDePasse") String motDePasse,
         @RequestParam("telephone") String telephone
     ) {
-
         if (!specialite.equalsIgnoreCase("psychiatrie") && !specialite.equalsIgnoreCase("psychologie")) {
             return ResponseEntity.badRequest().body(Map.of(
                 "message", "Spécialité invalide. Seules 'psychiatrie' ou 'psychologie' sont acceptées."
             ));
         }
-
         if (professionnelRepository.existsByEmail(email)) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "message", "Cet email est déjà utilisé !"
-            ));
+            return ResponseEntity.badRequest().body(Map.of("message", "Cet email est déjà utilisé !"));
         }
-
         if (professionnelRepository.existsByTelephone(telephone)) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "message", "Ce numéro de téléphone est déjà utilisé !"
-            ));
+            return ResponseEntity.badRequest().body(Map.of("message", "Ce numéro de téléphone est déjà utilisé !"));
         }
 
         try {
-            String nomFichier = saveFile(documentFile);
+            String cloudinaryUrl = saveFile(documentFile);
 
             ProfessionnelSanteMentale professionnel = new ProfessionnelSanteMentale();
             professionnel.setSpecialite(specialite);
-            professionnel.setDocumentJustificatif(nomFichier);
+            professionnel.setDocumentJustificatif(cloudinaryUrl); // URL complète Cloudinary
             professionnel.setStatutValidation(StatutValidation.EN_ATTENTE);
             professionnel.setNom(nom);
             professionnel.setPrenom(prenom);
@@ -92,38 +78,25 @@ public class ProfessionnelSanteMentaleController {
             professionnel.setMotDePasse(new BCryptPasswordEncoder().encode(motDePasse));
             professionnel.setTelephone(telephone);
             professionnel.setRole(
-                specialite.equalsIgnoreCase("psychiatrie")
-                    ? Role.PSYCHIATRE
-                    : Role.PSYCHOLOGUE
+                specialite.equalsIgnoreCase("psychiatrie") ? Role.PSYCHIATRE : Role.PSYCHOLOGUE
             );
 
             service.saveProfessionnel(professionnel);
-
-            return ResponseEntity.ok(Map.of(
-                "message", "Inscription réussie, en attente de validation."
-            ));
+            return ResponseEntity.ok(Map.of("message", "Inscription réussie, en attente de validation."));
 
         } catch (Exception e) {
-
-          
             e.printStackTrace();
-
             String causeMessage = "Erreur serveur. Veuillez réessayer.";
-
             if (e.getMessage() != null) {
                 if (e.getMessage().contains("unique_email") || e.getMessage().contains("email")) {
                     causeMessage = "Cet email est déjà utilisé !";
                 } else if (e.getMessage().contains("telephone")) {
                     causeMessage = "Ce numéro de téléphone est déjà utilisé !";
                 } else {
-                    // ✅ Exposé temporairement pour debug — à retirer en prod
                     causeMessage = "Erreur : " + e.getMessage();
                 }
             }
-
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "message", causeMessage
-            ));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", causeMessage));
         }
     }
 
@@ -152,60 +125,11 @@ public class ProfessionnelSanteMentaleController {
         }
     }
 
-    private String saveFile(MultipartFile file) throws IOException {
-
-        if (file == null || file.isEmpty()) {
-            throw new RuntimeException("Fichier vide");
-        }
-
-        String nomFichier = System.currentTimeMillis()
-                + "_" + file.getOriginalFilename()
-                .replace(" ", "_");
-
-        Path chemin = UPLOAD_DIR.resolve(nomFichier);
-
-        Files.copy(file.getInputStream(), chemin);
-
-        return nomFichier;
-    }
-    
-    @PostConstruct
-    public void init() throws IOException {
-        Files.createDirectories(UPLOAD_DIR);
-    }
-    @GetMapping("/fichiers/{nomFichier}")
-    public ResponseEntity<Resource> getFichier(@PathVariable String nomFichier) {
-        try {
-
-            Path filePath = UPLOAD_DIR.resolve(nomFichier).normalize();
-
-            Resource resource = new UrlResource(filePath.toUri());
-
-            if (!resource.exists() || !resource.isReadable()) {
-                return ResponseEntity.notFound().build();
-            }
-
-            String contentType = Files.probeContentType(filePath);
-            if (contentType == null) {
-                contentType = "application/octet-stream";
-            }
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename=\"" + resource.getFilename() + "\"")
-                    .body(resource);
-
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-    
     @PatchMapping("/prix-consultation")
     public ResponseEntity<?> definirPrixConsultation(@AuthenticationPrincipal ProfessionnelSanteMentale pro,
                                                      @RequestParam Double nouveauPrix) {
         if (nouveauPrix == null || nouveauPrix < 0) {
-            return ResponseEntity.badRequest().body("Le prix doit sêtre un nombre positif.");
+            return ResponseEntity.badRequest().body("Le prix doit être un nombre positif.");
         }
         pro.setPrixConsultation(nouveauPrix);
         professionnelRepository.save(pro);
@@ -230,13 +154,7 @@ public class ProfessionnelSanteMentaleController {
             Map<String, Object> map = new HashMap<>();
             map.put("id", consultation.getIdConsultation());
             map.put("date", consultation.getDateConsultation());
-
-            if (consultation.getHeure() != null) {
-                map.put("heure", consultation.getHeure().format(formatterHeure));
-            } else {
-                map.put("heure", null);
-            }
-
+            map.put("heure", consultation.getHeure() != null ? consultation.getHeure().format(formatterHeure) : null);
             map.put("prix", consultation.getPrix());
             map.put("statut", consultation.getStatut() != null ? consultation.getStatut().name() : null);
             map.put("notesProfessionnel", consultation.getNotesProfessionnel());
@@ -248,18 +166,36 @@ public class ProfessionnelSanteMentaleController {
                 map.put("utilisateurPrenom", utilisateur.getPrenom());
                 map.put("utilisateurEmail", utilisateur.getEmail());
             }
-
             return map;
         }).toList();
     }
-    @GetMapping("/debug-file/{nomFichier}")
-    public ResponseEntity<String> debug(@PathVariable String nomFichier) {
 
-        Path filePath = UPLOAD_DIR.resolve(nomFichier);
-
-        return ResponseEntity.ok(
-            "PATH = " + filePath.toAbsolutePath()
-            + "\nEXISTS = " + Files.exists(filePath)
+    // ── Méthode privée ──────────────────────────────────────────────────────────
+    private String saveFile(MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("Fichier vide");
+        }
+        
+        // LOG temporaire — à supprimer après debug
+        System.out.println("=== CLOUDINARY CONFIG ===");
+        System.out.println("cloud_name: " + System.getenv("CLOUDINARY_CLOUD_NAME"));
+        System.out.println("api_key: " + System.getenv("CLOUDINARY_API_KEY"));
+        
+        Map uploadResult = cloudinary.uploader().upload(
+            file.getBytes(),
+            ObjectUtils.asMap("folder", "professionnels", "resource_type", "auto")
         );
+        
+        String url = (String) uploadResult.get("secure_url");
+        
+        // LOG temporaire — à supprimer après debug
+        System.out.println("=== CLOUDINARY RESULT ===");
+        System.out.println("secure_url: " + url);
+        
+        if (url == null || url.isEmpty()) {
+            throw new RuntimeException("Cloudinary n'a pas retourné d'URL");
+        }
+        
+        return url;
     }
 }
