@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import ma.osbt.entitie.ProfessionnelSanteMentale;
+import ma.osbt.entitie.Reservation;
 import ma.osbt.entitie.StatutValidation;
 @Repository
 
@@ -19,5 +20,7 @@ public interface ProfessionnelSanteMentaleRepository extends JpaRepository<Profe
     Optional<ProfessionnelSanteMentale> findByEmail(String email);
 	boolean existsByEmail(String email);
 	boolean existsByTelephone(String telephone);
+	@Query("SELECT r FROM Reservation r LEFT JOIN FETCH r.consultation WHERE r.professionnel.id = :id")
+	List<Reservation> findByProfessionnelWithConsultation(Long id);
     
 }
