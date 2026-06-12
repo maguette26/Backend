@@ -20,7 +20,6 @@ import com.cloudinary.utils.ObjectUtils;
 import ma.osbt.entitie.Consultation;
 import ma.osbt.entitie.Personne;
 import ma.osbt.entitie.ProfessionnelSanteMentale;
-import ma.osbt.entitie.Reservation;
 import ma.osbt.entitie.Role;
 import ma.osbt.entitie.StatutValidation;
 import ma.osbt.entitie.Utilisateur;
@@ -161,24 +160,14 @@ public class ProfessionnelSanteMentaleController {
             map.put("notesProfessionnel", consultation.getNotesProfessionnel());
             map.put("notesUtilisateur", consultation.getNotesUtilisateur());
 
-            // ✅ Ajout infos réservation
-            if (consultation.getReservation() != null) {
-                Reservation reservation = consultation.getReservation();
-                map.put("reservationId", reservation.getId());
-                map.put("reservationStatut", reservation.getStatut() != null ? reservation.getStatut().name() : null);
-                map.put("dateReservation", reservation.getDateReservation());
-                map.put("heureReservation", reservation.getHeureReservation() != null 
-                    ? reservation.getHeureReservation().format(formatterHeure) : null);
-
-                if (reservation.getUtilisateur() != null) {
-                    Utilisateur utilisateur = reservation.getUtilisateur();
-                    map.put("utilisateurNom", utilisateur.getNom());
-                    map.put("utilisateurPrenom", utilisateur.getPrenom());
-                    map.put("utilisateurEmail", utilisateur.getEmail());
-                }
+            if (consultation.getReservation() != null && consultation.getReservation().getUtilisateur() != null) {
+                Utilisateur utilisateur = consultation.getReservation().getUtilisateur();
+                map.put("utilisateurNom", utilisateur.getNom());
+                map.put("utilisateurPrenom", utilisateur.getPrenom());
+                map.put("utilisateurEmail", utilisateur.getEmail());
             }
             return map;
-        }).toList(); 
+        }).toList();
     }
 
     // ── Méthode privée ──────────────────────────────────────────────────────────
