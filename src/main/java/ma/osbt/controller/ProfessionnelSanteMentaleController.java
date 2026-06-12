@@ -46,7 +46,8 @@ public class ProfessionnelSanteMentaleController {
     private ProfessionnelSanteMentaleRepository professionnelRepository;
 
     // ✅ FIX 1 : chemin Linux compatible Railway (était C:\Users\...)
-    private final String DOSSIER_UPLOAD = "/tmp/uploads/";
+    private final String DOSSIER_UPLOAD =
+            System.getProperty("java.io.tmpdir") + "/uploads/";
 
     @PostMapping("/inscription")
     public ResponseEntity<?> inscrireProfessionnel(
@@ -152,27 +153,44 @@ public class ProfessionnelSanteMentaleController {
 
     private String saveFile(MultipartFile file) throws IOException {
         String nomFichier = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        Path chemin = Paths.get(DOSSIER_UPLOAD + nomFichier);
-        Files.createDirectories(chemin.getParent());
+
+        Path dossier = Paths.get(DOSSIER_UPLOAD);
+        Files.createDirectories(dossier);
+
+        Path chemin = dossier.resolve(nomFichier);
+
         Files.write(chemin, file.getBytes());
+
         return nomFichier;
     }
 
     @GetMapping("/fichiers/{nomFichier}")
-    public ResponseEntity<Resource> getFichier(@PathVariable String nomFichier) throws IOException {
-        Path chemin = Paths.get(DOSSIER_UPLOAD + nomFichier);
-        Resource resource = new UrlResource(chemin.toUri());
+    public ResponseEntity<Resource> getFichier(@PathVariable String nomFichier) {
+        try {
+            Path chemin = Paths.get(DOSSIER_UPLOAD).resolve(nomFichier).normalize();
+            Resource resource = new UrlResource(chemin.toUri());
 
-        if (!resource.exists()) {
+            if (!resource.exists() || !resource.isReadable()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String contentType = Files.probeContentType(chemin);
+            if (contentType == null) {
+                contentType = "application/octet-stream";
+            }
+
+            return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(contentType))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + resource.getFilename() + "\"")
+                .body(resource);
+
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity.ok()
-            .contentType(MediaType.APPLICATION_OCTET_STREAM)
-            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
-            .body(resource);
     }
-
+    
+    
     @PatchMapping("/prix-consultation")
     public ResponseEntity<?> definirPrixConsultation(@AuthenticationPrincipal ProfessionnelSanteMentale pro,
                                                      @RequestParam Double nouveauPrix) {
