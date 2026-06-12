@@ -18,8 +18,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 	            .addInterceptors(webSocketUserInterceptor) 
 	            .withSockJS();
 
-registry.addEndpoint("/ws-consultation")
-.setAllowedOriginPatterns("http://localhost:5173")
+	    registry.addEndpoint("/ws-consultation")
+        .setAllowedOriginPatterns(
+            "http://localhost:5173",
+            "https://frontend-psyconnect.vercel.app"
+        )
         .withSockJS();
 	}
 	
