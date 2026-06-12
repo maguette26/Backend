@@ -22,6 +22,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.annotation.PostConstruct;
 import ma.osbt.entitie.Consultation;
 import ma.osbt.entitie.Personne;
 import ma.osbt.entitie.ProfessionnelSanteMentale;
@@ -46,8 +47,8 @@ public class ProfessionnelSanteMentaleController {
     private ProfessionnelSanteMentaleRepository professionnelRepository;
 
     // ✅ FIX 1 : chemin Linux compatible Railway (était C:\Users\...)
-    private final String DOSSIER_UPLOAD =
-            System.getProperty("java.io.tmpdir") + "/uploads/";
+    private final Path UPLOAD_DIR =
+            Paths.get(System.getProperty("user.dir"), "uploads", "professionnels");
 
     @PostMapping("/inscription")
     public ResponseEntity<?> inscrireProfessionnel(
@@ -152,44 +153,53 @@ public class ProfessionnelSanteMentaleController {
     }
 
     private String saveFile(MultipartFile file) throws IOException {
-        String nomFichier = System.currentTimeMillis() + "_" + file.getOriginalFilename();
 
-        Path dossier = Paths.get(DOSSIER_UPLOAD);
-        Files.createDirectories(dossier);
+        if (file == null || file.isEmpty()) {
+            throw new RuntimeException("Fichier vide");
+        }
 
-        Path chemin = dossier.resolve(nomFichier);
+        String nomFichier = System.currentTimeMillis()
+                + "_" + file.getOriginalFilename()
+                .replace(" ", "_");
 
-        Files.write(chemin, file.getBytes());
+        Path chemin = UPLOAD_DIR.resolve(nomFichier);
+
+        Files.copy(file.getInputStream(), chemin);
 
         return nomFichier;
     }
-
+    
+    @PostConstruct
+    public void init() throws IOException {
+        Files.createDirectories(UPLOAD_DIR);
+    }
     @GetMapping("/fichiers/{nomFichier}")
     public ResponseEntity<Resource> getFichier(@PathVariable String nomFichier) {
         try {
-            Path chemin = Paths.get(DOSSIER_UPLOAD).resolve(nomFichier).normalize();
-            Resource resource = new UrlResource(chemin.toUri());
+
+            Path filePath = UPLOAD_DIR.resolve(nomFichier).normalize();
+
+            Resource resource = new UrlResource(filePath.toUri());
 
             if (!resource.exists() || !resource.isReadable()) {
                 return ResponseEntity.notFound().build();
             }
 
-            String contentType = Files.probeContentType(chemin);
+            String contentType = Files.probeContentType(filePath);
             if (contentType == null) {
                 contentType = "application/octet-stream";
             }
 
             return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                    "attachment; filename=\"" + resource.getFilename() + "\"")
-                .body(resource);
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + resource.getFilename() + "\"")
+                    .body(resource);
 
         } catch (Exception e) {
-            return ResponseEntity.notFound().build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-    
     
     @PatchMapping("/prix-consultation")
     public ResponseEntity<?> definirPrixConsultation(@AuthenticationPrincipal ProfessionnelSanteMentale pro,
