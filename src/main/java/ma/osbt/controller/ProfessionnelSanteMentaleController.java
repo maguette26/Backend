@@ -1,7 +1,6 @@
 package ma.osbt.controller;
 
 import java.io.IOException;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,7 +69,7 @@ public class ProfessionnelSanteMentaleController {
 
             ProfessionnelSanteMentale professionnel = new ProfessionnelSanteMentale();
             professionnel.setSpecialite(specialite);
-            professionnel.setDocumentJustificatif(cloudinaryUrl); // URL complète Cloudinary
+            professionnel.setDocumentJustificatif(cloudinaryUrl);
             professionnel.setStatutValidation(StatutValidation.EN_ATTENTE);
             professionnel.setNom(nom);
             professionnel.setPrenom(prenom);
@@ -128,7 +127,7 @@ public class ProfessionnelSanteMentaleController {
     @PatchMapping("/prix-consultation")
     public ResponseEntity<?> definirPrixConsultation(@AuthenticationPrincipal ProfessionnelSanteMentale pro,
                                                      @RequestParam Double nouveauPrix) {
-        if (nouveauPrix == null || nouveauPrix <= 0) { // ✅ était < 0, maintenant <= 0
+        if (nouveauPrix == null || nouveauPrix <= 0) {
             return ResponseEntity.badRequest().body("Le prix doit être supérieur à 0.");
         }
         pro.setPrixConsultation(nouveauPrix);
@@ -142,30 +141,58 @@ public class ProfessionnelSanteMentaleController {
     }
 
     @GetMapping("/mes-reservations")
-    public List<Map<String, Object>> getReservationsPourProfessionnel(@AuthenticationPrincipal Personne personneConnectee) {
+    public List<Map<String, Object>> getReservationsPourProfessionnel(
+            @AuthenticationPrincipal Personne personneConnectee) {
+
         if (!(personneConnectee instanceof ProfessionnelSanteMentale professionnel)) {
             throw new RuntimeException("Seuls les professionnels peuvent accéder à leurs réservations");
         }
 
-        DateTimeFormatter formatterHeure = DateTimeFormatter.ofPattern("HH'H'mm");
-        List<Consultation> consultations = consultationService.getConsultationsParProfessionnelId(professionnel.getId());
+        List<Consultation> consultations =
+                consultationService.getConsultationsParProfessionnelId(professionnel.getId());
 
         return consultations.stream().map(consultation -> {
             Map<String, Object> map = new HashMap<>();
-            map.put("id", consultation.getIdConsultation());
-            map.put("date", consultation.getDateConsultation());
-            map.put("heure", consultation.getHeure() != null ? consultation.getHeure().format(formatterHeure) : null);
-            map.put("prix", consultation.getPrix());
-            map.put("statut", consultation.getStatut() != null ? consultation.getStatut().name() : null);
-            map.put("notesProfessionnel", consultation.getNotesProfessionnel());
-            map.put("notesUtilisateur", consultation.getNotesUtilisateur());
 
-            if (consultation.getReservation() != null && consultation.getReservation().getUtilisateur() != null) {
+            // ── Identifiant ────────────────────────────────────────────
+            map.put("id", consultation.getIdConsultation());
+
+            // ── Statut global ──────────────────────────────────────────
+            map.put("statut", consultation.getStatut() != null
+                    ? consultation.getStatut().name() : null);
+
+            // ── Notes ──────────────────────────────────────────────────
+            map.put("notesProfessionnel", consultation.getNotesProfessionnel());
+            map.put("notesUtilisateur",   consultation.getNotesUtilisateur());
+
+            // ── Utilisateur ────────────────────────────────────────────
+            if (consultation.getReservation() != null
+                    && consultation.getReservation().getUtilisateur() != null) {
+
                 Utilisateur utilisateur = consultation.getReservation().getUtilisateur();
-                map.put("utilisateurNom", utilisateur.getNom());
-                map.put("utilisateurPrenom", utilisateur.getPrenom());
-                map.put("utilisateurEmail", utilisateur.getEmail());
+                Map<String, Object> utilisateurMap = new HashMap<>();
+                utilisateurMap.put("nom",    utilisateur.getNom());
+                utilisateurMap.put("prenom", utilisateur.getPrenom());
+                utilisateurMap.put("email",  utilisateur.getEmail());
+                map.put("utilisateur", utilisateurMap);
+
+                // ── Date / heure de réservation ────────────────────────
+                map.put("dateReservation",  consultation.getReservation().getDateReservation());
+                map.put("heureReservation", consultation.getReservation().getHeureReservation());
             }
+
+            // ── Sous-objet consultation (date + heure planifiées) ──────
+            // LocalTime est sérialisé nativement par Jackson :
+            // { "hour": 10, "minute": 30, "second": 0, "nano": 0 }
+            // LocalDate / Date est sérialisé en timestamp ms (Long) ou "YYYY-MM-DD"
+            Map<String, Object> consultationMap = new HashMap<>();
+            consultationMap.put("date",   consultation.getDateConsultation()); // LocalDate ou java.util.Date
+            consultationMap.put("heure",  consultation.getHeure());            // LocalTime — pas formaté
+            consultationMap.put("prix",   consultation.getPrix());
+            consultationMap.put("statut", consultation.getStatut() != null
+                    ? consultation.getStatut().name() : null);
+            map.put("consultation", consultationMap);
+
             return map;
         }).toList();
     }
@@ -175,27 +202,18 @@ public class ProfessionnelSanteMentaleController {
         if (file == null || file.isEmpty()) {
             throw new RuntimeException("Fichier vide");
         }
-        
-        // LOG temporaire — à supprimer après debug
-        System.out.println("=== CLOUDINARY CONFIG ===");
-        System.out.println("cloud_name: " + System.getenv("CLOUDINARY_CLOUD_NAME"));
-        System.out.println("api_key: " + System.getenv("CLOUDINARY_API_KEY"));
-        
+
         Map uploadResult = cloudinary.uploader().upload(
             file.getBytes(),
             ObjectUtils.asMap("folder", "professionnels", "resource_type", "auto")
         );
-        
+
         String url = (String) uploadResult.get("secure_url");
-        
-        // LOG temporaire — à supprimer après debug
-        System.out.println("=== CLOUDINARY RESULT ===");
-        System.out.println("secure_url: " + url);
-        
+
         if (url == null || url.isEmpty()) {
             throw new RuntimeException("Cloudinary n'a pas retourné d'URL");
         }
-        
+
         return url;
     }
 }
