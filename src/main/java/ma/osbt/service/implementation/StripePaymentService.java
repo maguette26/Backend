@@ -49,7 +49,11 @@ public class StripePaymentService implements PaymentService {
             .putMetadata("reservation_id", reservationId.toString())
             .setDescription("Réservation #" + reservationId)
             .build();
-
+        System.out.println("=== STRIPE DEBUG ===");
+        System.out.println("Reservation ID = " + reservationId);
+        System.out.println("Amount = " + amountInCents);
+        System.out.println("Currency = " + currency);
+        System.out.println("API Key loaded = " + (Stripe.apiKey != null));
         PaymentIntent intent = PaymentIntent.create(params);
 
         // ✅ Vérifie ce que Stripe a bien reçu
