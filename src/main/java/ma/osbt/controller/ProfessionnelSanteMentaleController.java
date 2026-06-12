@@ -252,4 +252,14 @@ public class ProfessionnelSanteMentaleController {
             return map;
         }).toList();
     }
+    @GetMapping("/debug-file/{nomFichier}")
+    public ResponseEntity<String> debug(@PathVariable String nomFichier) {
+
+        Path filePath = UPLOAD_DIR.resolve(nomFichier);
+
+        return ResponseEntity.ok(
+            "PATH = " + filePath.toAbsolutePath()
+            + "\nEXISTS = " + Files.exists(filePath)
+        );
+    }
 }
