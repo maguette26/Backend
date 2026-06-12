@@ -57,8 +57,27 @@ public class PaymentController {
             }
 
         } catch (Exception e) {
+
+            System.err.println("========== ERREUR PAIEMENT ==========");
+            System.err.println("Type : " + e.getClass().getName());
+            System.err.println("Message : " + e.getMessage());
+
             e.printStackTrace();
-            return ResponseEntity.status(500).body("Erreur lors de la création du paiement : " + e.getMessage());
+
+            Throwable cause = e.getCause();
+            while (cause != null) {
+                System.err.println("Cause : " + cause.getClass().getName());
+                System.err.println("Message : " + cause.getMessage());
+                cause.printStackTrace();
+                cause = cause.getCause();
+            }
+
+            return ResponseEntity.status(500).body(
+                Map.of(
+                    "error", e.getClass().getName(),
+                    "message", e.getMessage() == null ? "Erreur inconnue" : e.getMessage()
+                )
+            );
         }
     }
     
